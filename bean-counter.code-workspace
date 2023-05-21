@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../deploy-fastapi-on-aws-lambda-fastapi-tutorial"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../../contacts/contact-backend"
+		}
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"activityBar.background": "#103140",
+			"titleBar.activeBackground": "#17445A",
+			"titleBar.activeForeground": "#F6FBFD"
+		}
+	}
+}

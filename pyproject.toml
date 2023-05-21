@@ -5,9 +5,9 @@ description = "Add a short description here"
 authors = [
     { name = "Jon Whittlestone", email = "dev@howapped.com" }
 ]
-dependencies = ["jupyterlab~=4.0.0"]
+dependencies = ["jupyterlab~=4.0.0", "uvicorn~=0.22.0", "fastapi~=0.95.2", "httpie~=3.2.2"]
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 
 [build-system]
 requires = ["hatchling"]

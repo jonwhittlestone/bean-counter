@@ -5,6 +5,22 @@ This experimental project aims to answer simple financial questions from the hou
 - Munge the Google Budget spreadsheets to a single CSV
 - Use Sketch to generate Python code to run analysis and plots
 
+## Usage
+
+Run the development server:
+
+```bash
+uvicorn src.bean_counter.main:app --port 7998 --reload
+```
+
+### Process Inflow
+
+To ingest all incoming costs from the Family Google Sheets, run with `httpie`:
+
+```bash
+http POST http://127.0.0.1:7998/process/inflow
+```
+
 ## Resources
 
 - Use Google Apps Script to make HTTP requests to trigger munge
