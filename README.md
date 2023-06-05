@@ -40,17 +40,16 @@ http POST http://127.0.0.1:7998/process/inflow
   - https://console.cloud.google.com/apis/library/sheets.googleapis.com?project=bean-counter-387506
 
 ## Resources
+- Fam Budget
+  - https://docs.google.com/spreadsheets/d/190QeHTRisFY3KwGO3M7wIgrJtvgKg7Dn5Q2a6VC3FWc/edit?usp=drive_web&ouid=108193035389652268079
 
 - Use Google Apps Script to make HTTP requests to trigger munge
-
   - https://stackoverflow.com/a/23917434
 
 - Develop Lambdas Locally in VS Code using AWS SAM
-
   - https://www.youtube.com/watch?v=mhdX4znMd2Q
 
 - Build a REST API using AWS Lambda and API Gateway
-
   - https://www.youtube.com/watch?v=4NY8nst45Rk
 
 - Deploy FastAPI on AWS Lambda
