@@ -10,8 +10,8 @@ from src.bean_counter.main import BudgetMunger, Sheet, Heading, HEADINGS
 client = TestClient(app)
 
 
-def test_process_incoming():
-    response = client.post("/process/incoming")
+def test_run():
+    response = client.post("/run")
     assert response.status_code == 201
 
 
@@ -21,32 +21,11 @@ def test_parse_sheet_model():
     assert type(res) == Sheet
 
 
-def test_set_headings_version_1():
+def test_set_headings_version_1(mocked_sheet_v1: list[list[str]]):
     munger = BudgetMunger(test=False)
     version_1_sheet = "01/19"
-    MOCKED_FILE = "./tests/version_1.csv"
 
-    import csv
-
-    # TO SAVE WS TO MOCKED FILE ----------------------
-    # res = munger.fetch_sheet(ws_name=version_1_sheet)
-    # with open(MOCKED_FILE, "w+") as my_csv:
-    #     csv_writer = csv.writer(my_csv,delimiter=',')
-    #     csv_writer.writerows(res)
-    # /TO SAVE WS TO MOCKED FILE ----------------------
-    ...
-
-    # TO READ WS TO MOCKED FILE ----------------------
-
-    with open(MOCKED_FILE, "r") as file:
-        csv_reader = csv.reader(file)
-        res = []
-        # Iterate over each row in the CSV file
-        for row in csv_reader:
-            res.append(row)
-    # /TO READ WS TO MOCKED FILE ----------------------
-
-    headings = munger.set_headings(ws_name=version_1_sheet, raw=res)
+    headings = munger.set_headings(ws_name=version_1_sheet, raw=mocked_sheet_v1)
     assert headings[0].cell_heading == HEADINGS[0]
 
 

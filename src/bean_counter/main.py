@@ -95,115 +95,6 @@ class BudgetMunger:
         ws = self.sh.worksheet(self.summary_sheet)
         ws.update("A1:B8", data)
 
-    def process_incoming(self):
-        """Process the incoming data from monthly worksheets"""
-        ...
-
-        # collect all sheet names with title in format: '01/19'
-        # sheets = [ws.title for ws in self.sh.worksheets() if ws.title[0].isdigit()]
-
-        # self.ws = self.sh.worksheet(self.summary_sheet)
-        # self.ws.update_cell(1, 2, 'Bingo!')
-
-    def skip_heading(self, hdg_cell: gspread.Cell, cell_to_check: gspread.Cell) -> bool:
-        """Ignore cells that are empty or contain a heading"""
-        if not cell_to_check.value:
-            return True
-        if (cell_to_check.value) in HEADINGS:
-            return True
-        return False
-
-    def stop_checking(self, cell: gspread.Cell) -> bool:
-        """Stop checking cells when we hit a heading"""
-        if cell.value in HEADINGS:
-            return True
-        return False
-
-    def get_item_range_under_heading(
-        self, hdg_cell: gspread.Cell, ws: gspread.Worksheet
-    ) -> str:
-        start = Cell(hdg_cell.row, hdg_cell.col).address
-        finish = Cell(hdg_cell.row, hdg_cell.col).address
-        items_to_find = True
-        row_pointer = 1
-        while items_to_find:
-            cell_to_check = ws.cell(hdg_cell.row + row_pointer, hdg_cell.col)
-            if self.skip_heading(hdg_cell, cell_to_check):
-                if (
-                    hdg_cell.value != cell_to_check.value
-                    and (cell_to_check.value) in HEADINGS
-                ):
-                    items_to_find = False
-                    break
-                row_pointer += 1
-                continue
-
-            row_pointer += 1
-            start = Cell(hdg_cell.row + 1, hdg_cell.col).address
-            finish = Cell(hdg_cell.row + row_pointer, hdg_cell.col + 1).address
-            ...
-        return f"{start}:{finish}"
-
-    def scan_for_headings(self, ws_name: str) -> list[Heading]:
-        ...
-        ws = self.sh.worksheet(ws_name)
-        for h in HEADINGS:
-            find_cell = ws.find(h)
-            if find_cell:
-                heading = Heading(
-                    sheet_name=self.spreadsheet_name,
-                    ws_name=ws_name,
-                    cell_heading=h,
-                    heading_column=find_cell.col,
-                    heading_row=find_cell.row,
-                    item_range=self.get_item_range_under_heading(
-                        hdg_cell=find_cell, ws=ws
-                    ),
-                )  # type: ignore
-                ...
-
-        ret = Heading(
-            sheet_name=self.spreadsheet_name,
-            ws_name=ws_name,
-            cell_heading="Outgoings",
-            heading_column=0,
-            heading_row=0,
-            item_range="A5:A9",
-            items=[
-                Item(
-                    cell_title="A5",
-                    cell_value="B5",
-                    title="Jon contribute (coming from savings)",
-                    value=3000,
-                ),
-                Item(
-                    cell_title="A6",
-                    cell_value="B6",
-                    title="Jon dividend from HowApped",
-                    value=0,
-                ),
-                Item(
-                    cell_title="A7",
-                    cell_value="B7",
-                    title="Lisa Salary",
-                    value=860,
-                ),
-                Item(
-                    cell_title="A8",
-                    cell_value="B8",
-                    title="Lisa Salary nursery",
-                    value=1000,
-                ),
-                Item(
-                    cell_title="A9",
-                    cell_value="B9",
-                    title="Lisa extra salary",
-                    value=0,
-                ),
-            ],
-        )  # type: ignore
-        return [ret]
-
     def set_headings(self, ws_name: str, raw: list[list[str]]):  # -> list[Heading]:
         headings = []
         for h in HEADINGS:
@@ -222,6 +113,7 @@ class BudgetMunger:
         return headings
 
     def is_item_worthy(self, val: str) -> bool:
+        """Is item worthy of capturing as an Item?"""
         if val == "":
             return False
         if val in SUB_HEADINGS:
@@ -261,11 +153,7 @@ class BudgetMunger:
         headings = self.set_headings(ws_name=ws_name, raw=raw)
         self.set_items(headings=headings, raw=raw)
 
-        # stub - Outgoing
-        # https://docs.google.com/spreadsheets/d/190QeHTRisFY3KwGO3M7wIgrJtvgKg7Dn5Q2a6VC3FWc/edit#gid=1443132488
-
         return Sheet(
-            # headings=headings,
             sheet_name=self.spreadsheet_name,
             sheet_version=SheetVersionEnum.VERSION_1,
             raw=raw,
@@ -296,11 +184,10 @@ def create_summary_gsheet_if_not_exists():
 
 
 @app.post(
-    "/process/incoming",
+    "/run",
     status_code=HTTP_201_CREATED,
     dependencies=[Depends(create_summary_gsheet_if_not_exists)],
 )
-async def process_incoming():
+async def run():
     """Endpoint to connect to GSheet to write to master csv with all inf lows"""
-    munger.process_incoming()
     return {"status": "success"}
