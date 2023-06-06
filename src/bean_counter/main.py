@@ -17,6 +17,8 @@ from gspread import Cell
 HEADINGS = [
     "Incomings",
     "Outgoings",
+    "💷 Incomings",
+    "💸 Outgoings",
     # "Savings",
     # "Investments",
     # "Net Worth"
@@ -28,9 +30,17 @@ SUB_HEADINGS = [
     "Balance",
     "Weekly",
     "Weekly Each",
+    "Total earnings carried over",
 ]
 
-CATEGORIES = ["House", "Repayments", "Monthly Extras"]
+CATEGORIES = [
+    "House",
+    "Repayments",
+    "Monthly Extras",
+    "Car",
+    "Offspring",
+    "Monthly Extras in Joint account",
+]
 
 
 class Item(BaseModel):
@@ -46,19 +56,25 @@ class Heading(BaseModel):
     cell_heading: str  # 'Outgoings'
     heading_column: int  # 0
     heading_row: int  # 0
-    # item_range: str  # 'A5:A7'
     items: list[Item] | None
 
 
 class SheetVersionEnum(str, Enum):
     VERSION_1 = "v1"
+    VERSION_2 = "v2"
 
 
 class Sheet(BaseModel):
     sheet_name: str  # '01/19'
     sheet_version: SheetVersionEnum
     raw: list[list[str]]
-    # headings: list[Heading]
+
+    @classmethod
+    def find_version(cls, raw: list[list[str]]) -> SheetVersionEnum:
+        if raw[0] == ["", "", "%", "Actual", "", ""]:
+            return SheetVersionEnum.VERSION_1
+        else:
+            return SheetVersionEnum.VERSION_2
 
 
 class SummaryRow(BaseModel):
@@ -86,6 +102,9 @@ class BudgetMunger:
         self.test = test
         self.summary_sheet = "bean-counter-summary"
         self.sh = self.gc.open(self.spreadsheet_name)
+
+    def run(self):
+        ...
 
     def fetch_sheet(self, ws_name):
         ws = self.sh.worksheet(ws_name)
@@ -155,7 +174,7 @@ class BudgetMunger:
 
         return Sheet(
             sheet_name=self.spreadsheet_name,
-            sheet_version=SheetVersionEnum.VERSION_1,
+            sheet_version=Sheet.find_version(raw=raw),
             raw=raw,
         )
 
@@ -169,7 +188,7 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to bean-counter!"}
+    return {"message": "Welcome to bean-counter! http://localhost:7998/run  "}
 
 
 def create_summary_gsheet_if_not_exists():
@@ -183,11 +202,13 @@ def create_summary_gsheet_if_not_exists():
         raise HTTPException(status_code=403, detail="Invalid auth to GSheet")
 
 
-@app.post(
+@app.get(
     "/run",
     status_code=HTTP_201_CREATED,
     dependencies=[Depends(create_summary_gsheet_if_not_exists)],
 )
 async def run():
-    """Endpoint to connect to GSheet to write to master csv with all inf lows"""
+    """Endpoint to connect to GSheet to write to master csv with all items"""
+    munger.run()
+
     return {"status": "success"}
