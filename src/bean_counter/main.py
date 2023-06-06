@@ -22,10 +22,18 @@ HEADINGS = [
     # "Net Worth"
 ]
 
+SUB_HEADINGS = [
+    "Total Incomings",
+    "Total Outgoings",
+    "Balance",
+    "Weekly",
+    "Weekly Each",
+]
+
+CATEGORIES = ["House", "Repayments", "Monthly Extras"]
+
 
 class Item(BaseModel):
-    cell_title: str
-    cell_value: str
     title: str
     value: float
 
@@ -41,8 +49,10 @@ class Heading(BaseModel):
     # item_range: str  # 'A5:A7'
     items: list[Item] | None
 
+
 class SheetVersionEnum(str, Enum):
     VERSION_1 = "v1"
+
 
 class Sheet(BaseModel):
     sheet_name: str  # '01/19'
@@ -83,8 +93,7 @@ class BudgetMunger:
 
     def write_summary(self, data):
         ws = self.sh.worksheet(self.summary_sheet)
-        ws.update('A1:B8', data)
-
+        ws.update("A1:B8", data)
 
     def process_incoming(self):
         """Process the incoming data from monthly worksheets"""
@@ -110,23 +119,28 @@ class BudgetMunger:
             return True
         return False
 
-    def get_item_range_under_heading(self, hdg_cell: gspread.Cell, ws: gspread.Worksheet) -> str:
+    def get_item_range_under_heading(
+        self, hdg_cell: gspread.Cell, ws: gspread.Worksheet
+    ) -> str:
         start = Cell(hdg_cell.row, hdg_cell.col).address
         finish = Cell(hdg_cell.row, hdg_cell.col).address
         items_to_find = True
         row_pointer = 1
         while items_to_find:
-            cell_to_check = ws.cell(hdg_cell.row+row_pointer, hdg_cell.col)
+            cell_to_check = ws.cell(hdg_cell.row + row_pointer, hdg_cell.col)
             if self.skip_heading(hdg_cell, cell_to_check):
-                if hdg_cell.value != cell_to_check.value and (cell_to_check.value) in HEADINGS:
+                if (
+                    hdg_cell.value != cell_to_check.value
+                    and (cell_to_check.value) in HEADINGS
+                ):
                     items_to_find = False
                     break
                 row_pointer += 1
                 continue
 
             row_pointer += 1
-            start = Cell(hdg_cell.row+1, hdg_cell.col).address
-            finish = Cell(hdg_cell.row+row_pointer, hdg_cell.col+1).address
+            start = Cell(hdg_cell.row + 1, hdg_cell.col).address
+            finish = Cell(hdg_cell.row + row_pointer, hdg_cell.col + 1).address
             ...
         return f"{start}:{finish}"
 
@@ -142,8 +156,10 @@ class BudgetMunger:
                     cell_heading=h,
                     heading_column=find_cell.col,
                     heading_row=find_cell.row,
-                    item_range=self.get_item_range_under_heading(hdg_cell=find_cell, ws=ws),
-                ) # type: ignore
+                    item_range=self.get_item_range_under_heading(
+                        hdg_cell=find_cell, ws=ws
+                    ),
+                )  # type: ignore
                 ...
 
         ret = Heading(
@@ -188,30 +204,62 @@ class BudgetMunger:
         )  # type: ignore
         return [ret]
 
-    def set_headings(self, ws_name: str, raw: list[list[str]]): # -> list[Heading]:
-
+    def set_headings(self, ws_name: str, raw: list[list[str]]):  # -> list[Heading]:
         headings = []
         for h in HEADINGS:
             for row in raw:
                 if h in row:
-                    headings.append(Heading(
-                        sheet_name=self.spreadsheet_name,
-                        ws_name=ws_name,
-                        cell_heading=h,
-                        heading_column=row.index(h),
-                        heading_row=raw.index(row),
-                    )) # type: ignore
+                    headings.append(
+                        Heading(
+                            sheet_name=self.spreadsheet_name,
+                            ws_name=ws_name,
+                            cell_heading=h,
+                            heading_column=row.index(h),
+                            heading_row=raw.index(row),
+                        )
+                    )  # type: ignore
             ...
         return headings
 
+    def is_item_worthy(self, val: str) -> bool:
+        if val == "":
+            return False
+        if val in SUB_HEADINGS:
+            return False
+        if val in CATEGORIES:
+            return False
+        return True
+
+    def set_items(self, headings: list[Heading], raw: list[list[str]]):
+        for h in headings:
+            ...
+            for row in raw:
+                if h.cell_heading in row[h.heading_column]:
+                    # Now we can loop through the rows below the heading until we reach another heading
+                    for i in range(h.heading_row + 1, len(raw)):
+                        if self.is_item_worthy(raw[i][0]):
+                            if str(raw[i][0]) in HEADINGS:
+                                break
+                            if h.items is None:
+                                h.items = []
+                            h.items.append(
+                                Item(
+                                    title=raw[i][h.heading_column],
+                                    value=0
+                                    if raw[i][h.heading_column + 1] == ""
+                                    else float(raw[i][h.heading_column + 1]),
+                                )
+                            )
+                    break
+        return headings
 
     def get_sheet(self, ws_name: str) -> Sheet:
         """Scan a sheet for headings and return a list of Heading objects"""
 
         ws_name = "01/19"
         raw = self.fetch_sheet(ws_name=ws_name)
-        # headings = self.scan_for_headings(ws_name=ws_name)
         headings = self.set_headings(ws_name=ws_name, raw=raw)
+        self.set_items(headings=headings, raw=raw)
 
         # stub - Outgoing
         # https://docs.google.com/spreadsheets/d/190QeHTRisFY3KwGO3M7wIgrJtvgKg7Dn5Q2a6VC3FWc/edit#gid=1443132488
