@@ -1,16 +1,17 @@
-from datetime import date, datetime
+import io
 import re
+from datetime import date, datetime
 from enum import Enum
-from time import sleep
 from typing import Literal, Optional
 from uuid import uuid4
-from fastapi import Query
-from fastapi import Depends, FastAPI, HTTPException
-from starlette.status import HTTP_201_CREATED
-from pydantic import BaseModel, ValidationError
 
 import gspread
+import pandas as pd
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from gspread import Cell
+from pydantic import BaseModel, ValidationError
+from starlette.status import HTTP_200_OK, HTTP_201_CREATED
 
 # from mangum import Mangum
 SHEET_URL = "https://docs.google.com/spreadsheets/d/190QeHTRisFY3KwGO3M7wIgrJtvgKg7Dn5Q2a6VC3FWc/edit#gid=1078864678"
@@ -274,3 +275,24 @@ async def run(limit: int = Query(None), test: bool = Query(False)):
     munger.run(filters)
 
     return {"status": "success", "sheet-url": SHEET_URL}
+
+
+@app.get(
+    "/summary",
+    status_code=HTTP_200_OK,
+    dependencies=[Depends(create_summary_gsheet_if_not_exists)],
+)
+async def summary():
+    """Endpoint to connect to GSheet to download summary sheet"""
+
+    from gspread_dataframe import get_as_dataframe, set_with_dataframe
+
+    ws = munger.sh.worksheet(munger.summary_sheet)
+    df = get_as_dataframe(ws)
+    stream = io.StringIO()
+    df.to_csv(stream, index=False)
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=summary.csv"
+    return response
+
+    return {"status": "Downloading WIP", "sheet-url": SHEET_URL}
