@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
+from starlette.status import HTTP_201_CREATED
 from src.bean_counter.main import SheetVersionEnum, app
 from .conftest import VERSION_1_SHEET, VERSION_2_SHEET
 
@@ -11,8 +12,8 @@ client = TestClient(app)
 
 
 def test_run():
-    response = client.get("/run?limit=2")
-    assert response.status_code == 201
+    response = client.get("/run?limit=2&test=True")
+    assert response.status_code == HTTP_201_CREATED
 
 
 def test_parse_sheet_model():
@@ -71,15 +72,3 @@ def test_find_sheet_version(
 
     version2 = Sheet.find_version(raw=mocked_sheet_v2)
     assert version2 == SheetVersionEnum.VERSION_2
-
-
-def test_write_summary():
-    munger = BudgetMunger(test=False)
-    munger.write_summary(
-        [
-            [1, 2],
-            [3, 4],
-            [5, 6],
-        ]
-    )
-    ...

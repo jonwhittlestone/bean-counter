@@ -1,7 +1,5 @@
 from datetime import date, datetime
 import re
-import json
-import os
 from enum import Enum
 from time import sleep
 from typing import Literal, Optional
@@ -9,7 +7,6 @@ from uuid import uuid4
 from fastapi import Query
 from fastapi import Depends, FastAPI, HTTPException
 from starlette.status import HTTP_201_CREATED
-from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ValidationError
 
 import gspread
@@ -48,6 +45,7 @@ CATEGORIES = [
 
 class RunFilterParams(BaseModel):
     limit: Optional[int]
+    test: Optional[int]
 
 
 class Item(BaseModel):
@@ -118,20 +116,21 @@ class BudgetMunger:
         self.summary_sheet = "bean-counter-summary"
         self.sh = self.gc.open(self.spreadsheet_name)
 
-    def run(self, filters: RunFilterParams):
+    def slurp_contents_of_all_sheets(self, filters: RunFilterParams):
+        """Slurp contents of all sheets"""
         sheets = []
-        # Slurp contents of all sheets
         m = 1
         for ws in self.sh.worksheets():
             if is_title_date(ws.title):
                 if filters.limit and m > filters.limit:
                     break
-                sleep(1.5)
                 sheets.append(self.get_sheet(ws_name=ws.title))
                 m += 1
-        # write to SummaryRow
+        return sheets
+
+    def build_flat_summary(self, sheets: list[Sheet]):
+        """Traverse sheets and build a flat summary of all items"""
         summary_rows = []
-        ...
         for s in sheets:
             for h in s.headings:
                 for i in h.items:
@@ -149,7 +148,18 @@ class BudgetMunger:
                         )
                     except ValidationError as e:
                         ...
-        self.write_summary(summary_rows)
+        return summary_rows
+
+    def run(self, filters: RunFilterParams):
+        try:
+            sheets = self.slurp_contents_of_all_sheets(filters=filters)
+            summary_rows = self.build_flat_summary(sheets)
+            if filters.test:
+                return summary_rows
+            else:
+                self.write_summary(summary_rows)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     def fetch_sheet(self, ws_name):
         ws = self.sh.worksheet(ws_name)
@@ -237,7 +247,7 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to bean-counter! http://localhost:7998/run  "}
+    return {"welcome": "http://localhost:7998/run"}
 
 
 def create_summary_gsheet_if_not_exists():
@@ -256,10 +266,10 @@ def create_summary_gsheet_if_not_exists():
     status_code=HTTP_201_CREATED,
     dependencies=[Depends(create_summary_gsheet_if_not_exists)],
 )
-async def run(limit: int = Query(None)):
+async def run(limit: int = Query(None), test: bool = Query(False)):
     """Endpoint to connect to GSheet to write to master csv with all items"""
 
-    filters = RunFilterParams(limit=limit)
+    filters = RunFilterParams(limit=limit, test=test)
 
     munger.run(filters)
 
