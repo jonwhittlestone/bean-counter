@@ -1,19 +1,22 @@
-from datetime import date
+from datetime import date, datetime
+import re
 import json
 import os
 from enum import Enum
+from time import sleep
 from typing import Literal, Optional
 from uuid import uuid4
+from fastapi import Query
 from fastapi import Depends, FastAPI, HTTPException
 from starlette.status import HTTP_201_CREATED
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 import gspread
 from gspread import Cell
 
 # from mangum import Mangum
-
+SHEET_URL = "https://docs.google.com/spreadsheets/d/190QeHTRisFY3KwGO3M7wIgrJtvgKg7Dn5Q2a6VC3FWc/edit#gid=1078864678"
 HEADINGS = [
     "Incomings",
     "Outgoings",
@@ -43,6 +46,10 @@ CATEGORIES = [
 ]
 
 
+class RunFilterParams(BaseModel):
+    limit: Optional[int]
+
+
 class Item(BaseModel):
     title: str
     value: float
@@ -67,7 +74,7 @@ class SheetVersionEnum(str, Enum):
 class Sheet(BaseModel):
     sheet_name: str  # '01/19'
     sheet_version: SheetVersionEnum
-    raw: list[list[str]]
+    headings: list[Heading]
 
     @classmethod
     def find_version(cls, raw: list[list[str]]) -> SheetVersionEnum:
@@ -84,7 +91,7 @@ class SummaryRow(BaseModel):
     direction: str
     name: str
     category: str
-    dt: date
+    date: str
     val: float
 
 
@@ -95,6 +102,14 @@ def google_sheets_auth(from_dict=False):
     return gspread.service_account(filename="./config/service_account.json")
 
 
+def is_title_date(string):
+    """Checks if string is mm/yy"""
+    pattern = r"^\d{2}/\d{2}$"
+    match = re.match(pattern, string)
+    if match:
+        return True
+
+
 class BudgetMunger:
     def __init__(self, test: bool = False) -> None:
         self.gc = google_sheets_auth()
@@ -103,16 +118,52 @@ class BudgetMunger:
         self.summary_sheet = "bean-counter-summary"
         self.sh = self.gc.open(self.spreadsheet_name)
 
-    def run(self):
+    def run(self, filters: RunFilterParams):
+        sheets = []
+        # Slurp contents of all sheets
+        m = 1
+        for ws in self.sh.worksheets():
+            if is_title_date(ws.title):
+                if filters.limit and m > filters.limit:
+                    break
+                sleep(1.5)
+                sheets.append(self.get_sheet(ws_name=ws.title))
+                m += 1
+        # write to SummaryRow
+        summary_rows = []
         ...
+        for s in sheets:
+            for h in s.headings:
+                for i in h.items:
+                    date_obj = datetime.strptime(h.ws_name, "%m/%y")
+                    try:
+                        summary_rows.append(
+                            SummaryRow(
+                                _id=str(uuid4()),
+                                direction=h.cell_heading,
+                                name=i.title,
+                                category="",
+                                date=date_obj.date().isoformat(),
+                                val=i.value,
+                            )
+                        )
+                    except ValidationError as e:
+                        ...
+        self.write_summary(summary_rows)
 
     def fetch_sheet(self, ws_name):
         ws = self.sh.worksheet(ws_name)
         return ws.get_all_values()
 
+    def write_row(self, row: SummaryRow):
+        d = row.dict()
+        ret = d.values()
+        return list(ret)
+
     def write_summary(self, data):
         ws = self.sh.worksheet(self.summary_sheet)
-        ws.update("A1:B8", data)
+        ...
+        ws.update("A1:ZZ10000", [self.write_row(r) for r in data if r.val > 0])
 
     def set_headings(self, ws_name: str, raw: list[list[str]]):  # -> list[Heading]:
         headings = []
@@ -153,13 +204,12 @@ class BudgetMunger:
                                 break
                             if h.items is None:
                                 h.items = []
+                            try:
+                                val = float(raw[i][h.heading_column + 1])
+                            except ValueError:
+                                val = 0
                             h.items.append(
-                                Item(
-                                    title=raw[i][h.heading_column],
-                                    value=0
-                                    if raw[i][h.heading_column + 1] == ""
-                                    else float(raw[i][h.heading_column + 1]),
-                                )
+                                Item(title=raw[i][h.heading_column], value=val)
                             )
                     break
         return headings
@@ -167,7 +217,6 @@ class BudgetMunger:
     def get_sheet(self, ws_name: str) -> Sheet:
         """Scan a sheet for headings and return a list of Heading objects"""
 
-        ws_name = "01/19"
         raw = self.fetch_sheet(ws_name=ws_name)
         headings = self.set_headings(ws_name=ws_name, raw=raw)
         self.set_items(headings=headings, raw=raw)
@@ -175,7 +224,7 @@ class BudgetMunger:
         return Sheet(
             sheet_name=self.spreadsheet_name,
             sheet_version=Sheet.find_version(raw=raw),
-            raw=raw,
+            headings=headings,
         )
 
 
@@ -207,8 +256,11 @@ def create_summary_gsheet_if_not_exists():
     status_code=HTTP_201_CREATED,
     dependencies=[Depends(create_summary_gsheet_if_not_exists)],
 )
-async def run():
+async def run(limit: int = Query(None)):
     """Endpoint to connect to GSheet to write to master csv with all items"""
-    munger.run()
 
-    return {"status": "success"}
+    filters = RunFilterParams(limit=limit)
+
+    munger.run(filters)
+
+    return {"status": "success", "sheet-url": SHEET_URL}

@@ -11,7 +11,7 @@ client = TestClient(app)
 
 
 def test_run():
-    response = client.get("/run")
+    response = client.get("/run?limit=2")
     assert response.status_code == 201
 
 
