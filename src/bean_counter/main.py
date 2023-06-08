@@ -9,11 +9,11 @@ import gspread
 import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from gspread import Cell
 from pydantic import BaseModel, ValidationError
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED
 
-# from mangum import Mangum
+from mangum import Mangum
+
 SHEET_URL = "https://docs.google.com/spreadsheets/d/190QeHTRisFY3KwGO3M7wIgrJtvgKg7Dn5Q2a6VC3FWc/edit#gid=1078864678"
 HEADINGS = [
     "Incomings",
@@ -173,7 +173,7 @@ class BudgetMunger:
 
     def write_summary(self, data):
         ws = self.sh.worksheet(self.summary_sheet)
-        ...
+        ws.clear()
         ws.update("A1:ZZ10000", [self.write_row(r) for r in data if r.val > 0])
 
     def set_headings(self, ws_name: str, raw: list[list[str]]):  # -> list[Heading]:
@@ -243,7 +243,7 @@ munger = BudgetMunger()
 
 
 app = FastAPI()
-# handler = Mangum(app)
+handler = Mangum(app)
 
 
 @app.get("/")
@@ -294,5 +294,3 @@ async def summary():
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=summary.csv"
     return response
-
-    return {"status": "Downloading WIP", "sheet-url": SHEET_URL}
