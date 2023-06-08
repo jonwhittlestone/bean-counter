@@ -15,7 +15,7 @@ uvicorn src.bean_counter.main:app --port 7998 --reload
 
 ### Process Inflow
 
-To ingest all incoming costs from the Family Google Sheets, run with `httpie`:
+To ingest all costs from the Family Google Sheets, run with `httpie`:
 
 ```bash
 http POST http://127.0.0.1:7998/run
@@ -51,16 +51,49 @@ http POST http://127.0.0.1:7998/run
 
   - https://stackoverflow.com/a/23917434
 
-- Develop Lambdas Locally in VS Code using AWS SAM
+- Using FastAPI with AWS SAM the Easy Way!
 
-  - https://www.youtube.com/watch?v=mhdX4znMd2Q
-
-- Build a REST API using AWS Lambda and API Gateway
-
-  - https://www.youtube.com/watch?v=4NY8nst45Rk
+  - https://www.sensibledefaults.io/blog/fastapi-mangum-aws-sam/index
 
 - Deploy FastAPI on AWS Lambda
   - https://www.youtube.com/watch?v=RGIM4JfsSk0
+
+## AWS Lambda
+
+After installation/credentials set up AWS CLI v2:
+
+- ```bash
+  aws lambda list-functions
+  ```
+
+### To manually create and run Lambda in Management Console
+
+1. Get Python 3.10 packages (see ./aws/3.10-requirements.txt)
+
+2. Create zip file `lambda_function.zip`:
+
+```bash
+pip install -t lib -r 3.10-requirements.txt
+
+(cd lib; zip ../lambda_function.zip -r .)
+
+(cd src/bean_counter; zip ../../lambda_function.zip -u main.py; cd -)
+
+zip lambda_function.zip -r config
+
+```
+
+3. Upload it to S3 with:
+
+```bash
+aws s3 mv lambda_function.zip s3://projects-bean-counter/lambda_function.zip
+```
+
+4. Create the Lambda function:
+
+5. Upload by giving it S3 address
+
+6. Tweak Configuration (Memory, Timeout)
 
 ## Sample summary gsheet
 

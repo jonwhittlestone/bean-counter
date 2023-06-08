@@ -11,3 +11,5 @@ wheels/
 
 config/service_account.json
 ```
+lib/*
+*.zip

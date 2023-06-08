@@ -59,6 +59,7 @@ jupyter-server-terminals==0.4.4
 jupyterlab==4.0.0
 jupyterlab-pygments==0.2.2
 jupyterlab-server==2.22.1
+mangum==0.17.0
 markdown-it-py==2.2.0
 markupsafe==2.1.2
 matplotlib-inline==0.1.6
