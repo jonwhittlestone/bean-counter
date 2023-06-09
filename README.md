@@ -60,7 +60,7 @@ http POST http://127.0.0.1:7998/run
 
 ## AWS Lambda
 
-If this has been activated, run mine:
+If you have the credentials, run mine:
 
 - https://ixbcimiswyj7g3yp2q2k7d3lgy0dwexa.lambda-url.eu-west-2.on.aws
 
@@ -72,50 +72,54 @@ After installation/credentials set up AWS CLI v2:
 
 ### To manually create and run Lambda in Management Console
 
+> Already created the Lambda and need to update it?
+>
+> `bash make update-lambda`
+
 1. Get Python 3.10 packages (see ./aws/3.10-requirements.txt)
 
 2. Create zip file `lambda_function.zip`:
 
-```bash
-pip install -t lib -r 3.10-requirements.txt
+   ```bash
+   pip install -t lib -r 3.10-requirements.txt
 
-(cd lib; zip ../lambda_function.zip -r .)
+   (cd lib; zip ../lambda_function.zip -r .)
 
-(cd src/bean_counter; zip ../../lambda_function.zip -u main.py; cd -)
+   (cd src/bean_counter; zip ../../lambda_function.zip -u main.py; zip ../../lambda_function.zip -u .env; cd -)
 
-zip lambda_function.zip -r config
+   zip lambda_function.zip -r config
 
-```
+   ```
 
 3. Upload it to S3 with:
 
-```bash
-aws s3 mv lambda_function.zip s3://projects-bean-counter/lambda_function.zip
-```
+   ```bash
+   aws s3 cp lambda_function.zip s3://projects-bean-counter/lambda_function.zip
+   ```
 
 4. Create the Lambda function:
 
 5. Upload by giving it S3 address
 
-```bash
-aws lambda update-function-code --function-name bean-counter --s3-bucket projects-bean-counter --s3-key lambda_function.zip
-```
+   ```bash
+   aws lambda update-function-code --function-name bean-counter --s3-bucket projects-bean-counter --s3-key lambda_function.zip
+   ```
 
 6. Tweak Configuration (Memory, Timeout)
 
 7. Deactivate/Reactivate (Optional)
 
-Deactivate:
+   Deactivate:
 
-```bash
-aws lambda put-function-concurrency --function-name bean-counter --reserved-concurrent-executions 0
-```
+   ```bash
+   aws lambda put-function-concurrency --function-name bean-counter --reserved-concurrent-executions 0
+   ```
 
-Reactivate:
+   Reactivate:
 
-```
-aws lambda put-function-concurrency --function-name bean-counter --reserved-concurrent-executions 10
-```
+   ```
+   aws lambda put-function-concurrency --function-name bean-counter --reserved-concurrent-executions 10
+   ```
 
 ## Sample summary gsheet
 
