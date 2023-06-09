@@ -13,3 +13,4 @@ config/service_account.json
 ```
 lib/*
 *.zip
+src/bean_counter/.env

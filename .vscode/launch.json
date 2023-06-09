@@ -20,7 +20,6 @@
       "justMyCode": false,
       "program": "${workspaceFolder}/.venv/bin/pytest",
       "console": "integratedTerminal",
-      "env": {},
       "args": []
     }
   ]

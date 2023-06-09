@@ -121,8 +121,8 @@ aws lambda put-function-concurrency --function-name bean-counter --reserved-conc
 
 > Generated from https://jakebathman.github.io/Markdown-Table-Generator/
 
-| **Monthly Cashflow ID** | **Direction** | **Name**              | **Category** | **Date** | **GBP** |
-| ----------------------- | ------------- | --------------------- | ------------ | -------- | ------- |
-| 0523-A15-mortgage       | Outgoing      | Petrol                |              | 05/23    | 400     |
-| 0323-A05-saalary        | Incoming      | Salary                |              | 03/23    | 3,500   |
-| 1222-A2-carryjoint      | Incoming      | Carry over from Joint |              | 12/22    | 400     |
+| **Direction** |       **Name**        | **Category** | **Date** | **GBP** |
+| :-----------: | :-------------------: | :----------: | :------: | :-----: |
+|   Outgoing    |        Petrol         |              |  05/23   |   400   |
+|   Incoming    |        Salary         |              |  03/23   |  3,500  |
+|   Incoming    | Carry over from Joint |              |  12/22   |   400   |

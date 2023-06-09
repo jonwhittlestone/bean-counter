@@ -1,5 +1,7 @@
 import io
 import re
+import os
+from dotenv import load_dotenv
 from datetime import date, datetime
 from enum import Enum
 from typing import Literal, Optional
@@ -9,8 +11,10 @@ import gspread
 import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBasic
+from fastapi.security import HTTPBasicCredentials
 from pydantic import BaseModel, ValidationError
-from starlette.status import HTTP_200_OK, HTTP_201_CREATED
+from starlette.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_401_UNAUTHORIZED
 
 from mangum import Mangum
 
@@ -280,10 +284,27 @@ def create_summary_gsheet_if_not_exists():
         raise HTTPException(status_code=403, detail="Invalid auth to GSheet")
 
 
+load_dotenv()
+basic_auth = HTTPBasic()
+
+
+def do_basic_auth(credentials: HTTPBasicCredentials = Depends(basic_auth)):
+    """Basic auth protection on routes. Displays as modal in swagger UI."""
+    correct_username = os.getenv("AUTH_USERNAME")
+    correct_password = os.getenv("AUTH_PASSWORD")
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return True
+
+
 @app.get(
     "/run",
     status_code=HTTP_201_CREATED,
-    dependencies=[Depends(create_summary_gsheet_if_not_exists)],
+    dependencies=[Depends(do_basic_auth), Depends(create_summary_gsheet_if_not_exists)],
 )
 async def run(limit: int = Query(None), test: bool = Query(False)):
     """Endpoint to connect to GSheet to write to master csv with all items"""
@@ -304,7 +325,7 @@ async def run(limit: int = Query(None), test: bool = Query(False)):
 @app.get(
     "/summary",
     status_code=HTTP_200_OK,
-    dependencies=[Depends(create_summary_gsheet_if_not_exists)],
+    dependencies=[Depends(do_basic_auth), Depends(create_summary_gsheet_if_not_exists)],
 )
 async def summary():
     """Endpoint to connect to GSheet to download summary sheet"""
