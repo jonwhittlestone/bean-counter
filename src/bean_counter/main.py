@@ -1,5 +1,7 @@
 import io
 import re
+import os
+from dotenv import load_dotenv
 from datetime import date, datetime
 from enum import Enum
 from typing import Literal, Optional
@@ -7,10 +9,12 @@ from uuid import uuid4
 
 import gspread
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBasic
+from fastapi.security import HTTPBasicCredentials
 from pydantic import BaseModel, ValidationError
-from starlette.status import HTTP_200_OK, HTTP_201_CREATED
+from starlette.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_401_UNAUTHORIZED
 
 from mangum import Mangum
 
@@ -109,6 +113,19 @@ def is_title_date(string):
         return True
 
 
+def de_emojify(input_string):
+    regrex_pattern = re.compile(
+        pattern="["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "]+",
+        flags=re.UNICODE,
+    )
+    return regrex_pattern.sub(r"", input_string)
+
+
 class BudgetMunger:
     def __init__(self, test: bool = False) -> None:
         self.gc = google_sheets_auth()
@@ -160,7 +177,7 @@ class BudgetMunger:
             else:
                 self.write_summary(summary_rows)
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            raise Exception(e)
 
     def fetch_sheet(self, ws_name):
         ws = self.sh.worksheet(ws_name)
@@ -171,10 +188,15 @@ class BudgetMunger:
         ret = d.values()
         return list(ret)
 
+    def write_header(self, data):
+        return list(data[0].dict().keys())
+
     def write_summary(self, data):
         ws = self.sh.worksheet(self.summary_sheet)
         ws.clear()
-        ws.update("A1:ZZ10000", [self.write_row(r) for r in data if r.val > 0])
+        rows = [self.write_row(r) for r in data if r.val > 0]
+        rows.insert(0, self.write_header(data))
+        ws.update("A1:ZZ5", rows)
 
     def set_headings(self, ws_name: str, raw: list[list[str]]):  # -> list[Heading]:
         headings = []
@@ -185,7 +207,7 @@ class BudgetMunger:
                         Heading(
                             sheet_name=self.spreadsheet_name,
                             ws_name=ws_name,
-                            cell_heading=h,
+                            cell_heading=de_emojify(h).strip(),
                             heading_column=row.index(h),
                             heading_row=raw.index(row),
                         )
@@ -247,8 +269,8 @@ handler = Mangum(app)
 
 
 @app.get("/")
-async def root():
-    return {"welcome": "http://localhost:7998/run"}
+async def root(request: Request):
+    return {"welcome": f"{request.base_url}run"}
 
 
 def create_summary_gsheet_if_not_exists():
@@ -262,25 +284,48 @@ def create_summary_gsheet_if_not_exists():
         raise HTTPException(status_code=403, detail="Invalid auth to GSheet")
 
 
+load_dotenv()
+basic_auth = HTTPBasic()
+
+
+def do_basic_auth(credentials: HTTPBasicCredentials = Depends(basic_auth)):
+    """Basic auth protection on routes. Displays as modal in swagger UI."""
+    correct_username = os.getenv("AUTH_USERNAME")
+    correct_password = os.getenv("AUTH_PASSWORD")
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return True
+
+
 @app.get(
     "/run",
     status_code=HTTP_201_CREATED,
-    dependencies=[Depends(create_summary_gsheet_if_not_exists)],
+    dependencies=[Depends(do_basic_auth), Depends(create_summary_gsheet_if_not_exists)],
 )
 async def run(limit: int = Query(None), test: bool = Query(False)):
     """Endpoint to connect to GSheet to write to master csv with all items"""
 
     filters = RunFilterParams(limit=limit, test=test)
 
-    munger.run(filters)
-
-    return {"status": "success", "sheet-url": SHEET_URL}
+    try:
+        munger.run(filters)
+        return {
+            "datetime": datetime.now().isoformat(),
+            "status": "success",
+            "sheet-url": SHEET_URL,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get(
     "/summary",
     status_code=HTTP_200_OK,
-    dependencies=[Depends(create_summary_gsheet_if_not_exists)],
+    dependencies=[Depends(do_basic_auth), Depends(create_summary_gsheet_if_not_exists)],
 )
 async def summary():
     """Endpoint to connect to GSheet to download summary sheet"""
