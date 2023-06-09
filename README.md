@@ -13,7 +13,7 @@ Run the development server:
 uvicorn src.bean_counter.main:app --port 7998 --reload
 ```
 
-### Process Inflow
+### Run
 
 To ingest all costs from the Family Google Sheets, run with `httpie`:
 
@@ -60,6 +60,10 @@ http POST http://127.0.0.1:7998/run
 
 ## AWS Lambda
 
+If this has been activated, run mine:
+
+- https://ixbcimiswyj7g3yp2q2k7d3lgy0dwexa.lambda-url.eu-west-2.on.aws
+
 After installation/credentials set up AWS CLI v2:
 
 - ```bash
@@ -93,7 +97,25 @@ aws s3 mv lambda_function.zip s3://projects-bean-counter/lambda_function.zip
 
 5. Upload by giving it S3 address
 
+```bash
+aws lambda update-function-code --function-name bean-counter --s3-bucket projects-bean-counter --s3-key lambda_function.zip
+```
+
 6. Tweak Configuration (Memory, Timeout)
+
+7. Deactivate/Reactivate (Optional)
+
+Deactivate:
+
+```bash
+aws lambda put-function-concurrency --function-name bean-counter --reserved-concurrent-executions 0
+```
+
+Reactivate:
+
+```
+aws lambda put-function-concurrency --function-name bean-counter --reserved-concurrent-executions 10
+```
 
 ## Sample summary gsheet
 

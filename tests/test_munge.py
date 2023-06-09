@@ -33,8 +33,8 @@ def test_set_headings_version_2(mocked_sheet_v2: list[list[str]]):
     munger = BudgetMunger(test=True)
 
     headings = munger.set_headings(ws_name=VERSION_2_SHEET, raw=mocked_sheet_v2)
-    assert headings[0].cell_heading == "💷 Incomings"
-    assert headings[1].cell_heading == "💸 Outgoings"
+    assert headings[0].cell_heading == "Incomings"
+    assert headings[1].cell_heading == "Outgoings"
 
 
 def test_set_items_version_1(mocked_sheet_v1: list[list[str]]):
